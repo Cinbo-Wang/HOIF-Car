@@ -1,0 +1,23 @@
+Package: HOIFCar
+Type: Package
+Title: Covariate Adjustment in Randomized Experiments Motivated by
+        Higher-Order Influence Functions
+Version: 0.1.0
+Authors@R: c( 
+    person("Sihui", "Zhao", email = "shzhao0115@sjtu.edu.cn", role = "aut"),
+    person("Xinbo", "Wang", email = "cinbo_w@sjtu.edu.cn", role = c("cre", "aut")),
+    person("Liu", "Liu", email = "linliu@sjtu.edu.cn", role = "ctb"))
+Maintainer: Xinbo Wang <cinbo_w@sjtu.edu.cn>
+Description: The HOIFCar package is designed for estimating treatment effects using various covariate adjustment methods.
+    It provides point estimates of treatment effects in the treatment arm, along with oracle bias, variance, and the 
+    corresponding approximated variance for the adjusted estimators motivated by higher-order influence functions (HOIF). 
+    Details of the methodology can be found in Zhao, S., Wang, X., Liu, L., and Zhang, X. (2024), 
+    "Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions."
+License: MIT + file LICENSE
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+NeedsCompilation: no
+Packaged: 2024-11-14 04:11:38 UTC; 13619
+Author: Sihui Zhao [aut],
+  Xinbo Wang [cre, aut],
+  Liu Liu [ctb]
