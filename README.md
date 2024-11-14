@@ -63,3 +63,4 @@ unlist(result_adj2_3)
 
 
 ## References
+Zhao, S., Wang, X., Liu, L., & Zhang, X. (2024). Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491
