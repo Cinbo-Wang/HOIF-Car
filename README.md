@@ -24,6 +24,7 @@ Y1 <- as.numeric(X %*% beta)
 pi1 <- 0.5
 n1 <- ceiling(n*pi1)
 
+require(HOIFCar)
 result_adj_db <- get_oracle_var_adj_db(X = X,Y1=Y1,n1=n1) # from LYW paper
 result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1=Y1,n1=n1)
 result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,n1=n1)
