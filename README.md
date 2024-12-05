@@ -1,7 +1,7 @@
 # HOIF-Car
 
-The *HOIFCar* package is designed for estimating treatment effects using various covariate adjustment methods. It provides point estimates of treatment effects in the treatment arm, along with oracle bias, variance, and the corresponding approximated variance for the adjusted estimators motivated by higher-order influence functions (HOIF). 
-
+The *HOIFCar* package facilitates the estimation of treatment effects through a range of covariate adjustment methods. It supports the calculation of point estimates and variance estimates for treatment effects within the treatment arm. Additionally, the package provides oracle bias, oracle variance, and the corresponding approximated variance for adjusted estimators derived from higher-order influence functions (HOIF).
+   
 
 Complete derivation for the exact variance of $\hat{\tau}_{\mathsf{adj}, 2}^{\dagger}$ under the randomization-based framework can be found [here](https://github.com/Cinbo-Wang/HOIF-Car/blob/main/var-db.pdf).
 
