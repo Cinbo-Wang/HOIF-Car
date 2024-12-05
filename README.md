@@ -19,15 +19,16 @@ n <- 500
 p <- 50
 beta <- rt(p,3)
 
-X <- mvtnorm::rmvt(n, sigma = diag(1, p), df = 2)
+X <- mvtnorm::rmvt(n, sigma = diag(1, p), df = 3)
 Y1 <- as.numeric(X %*% beta)
-pi1 <- 0.45
+pi1 <- 0.5
+n1 <- ceiling(n*pi1)
 
-result_adj_db <- get_oracle_var_adj_db(X = X,Y1=Y1,pi1=pi1) # from LYW paper
-result_adj2_dag <- get_oracle_bias_var_adj2_dag(X = X,Y1=Y1,pi1=pi1)
-result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,pi1=pi1)
+result_adj_db <- get_oracle_var_adj_db(X = X,Y1=Y1,n1=n1) # from LYW paper
+result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1=Y1,n1=n1)
+result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,n1=n1)
 unlist(result_adj_db)
-unlist(result_adj2_dag)
+unlist(result_adj2c)
 unlist(result_adj2_3)
 
 
@@ -40,7 +41,7 @@ p <- ceiling(n*alpha)
 Sigma_true <- matrix(0,nrow=p,ncol=p)
 for(i in 1:p){
   for(j in 1:p){
-    Sigma_true[i,j] <- 0.3**(abs(i-j))
+    Sigma_true[i,j] <- 0.1**(abs(i-j))
   }
 }
 
@@ -51,14 +52,46 @@ epsilon1 <- epsilon0 <- rt(n,3)
 Y1 <- 1 + as.numeric(or_baseline) + epsilon1
 
 
-pi1 <- 0.45
-result_adj_db <- get_oracle_var_adj_db(X = X,Y1=Y1,pi1=pi1)
-result_adj2_dag <- get_oracle_bias_var_adj2_dag(X = X,Y1=Y1,pi1=pi1)
-result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,pi1=pi1)
+pi1 <- 2/3
+n1 <- ceiling(n*pi1)
+
+result_adj_db <- get_oracle_var_adj_db(X = X,Y1=Y1,n1=n1) # from LYW paper
+result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1=Y1,n1=n1)
+result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,n1=n1)
 unlist(result_adj_db)
-unlist(result_adj2_dag)
+unlist(result_adj2c)
 unlist(result_adj2_3)
 
+
+
+# Realistic simulation
+set.seed(100)
+n <- 500
+p <- n * 0.3
+beta <- runif(p, -1 / sqrt(p), 1 / sqrt(p))
+
+X <- mvtnorm::rmvt(n, sigma = diag(1, p), df = 3)
+Y1 <- as.numeric(X %*% beta)
+Y0 <- rep(0, n)
+
+pi1 <- 2/3
+n1 <- ceiling(n * pi1)
+ind <- sample(n, size = n1)
+A <- rep(0, n)
+A[ind] <- 1
+Y <- Y1 * A + Y0 * (1 - A)
+
+Xc_svd <- svd(X)
+H <- Xc_svd$u %*% t(Xc_svd$u)
+
+result_ls <- esti_mean_treat(X, Y, A, H)
+point_est <- result_ls$point_est
+var_est <- result_ls$var_est
+print(paste0('True mean treat:', round(mean(Y1), digits = 3), '.'))
+print('Absolute bias:')
+print(abs(point_est - mean(Y1)))
+print('Estimate variance:')
+print(var_est)
 
 ```
 
