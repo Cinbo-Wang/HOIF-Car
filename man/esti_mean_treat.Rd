@@ -2,7 +2,7 @@
 % Please edit documentation in R/fun_estimate_mean_treat.R
 \name{esti_mean_treat}
 \alias{esti_mean_treat}
-\title{Estimate treatment effect and the corresponding variance estimation on the treatment arm using different covariates adjustment methods.}
+\title{Estimate treatment effect and the corresponding variance estimation on the treatment arm using different covariate adjustment methods.}
 \usage{
 esti_mean_treat(X, Y, A, H = NULL)
 }
@@ -16,25 +16,35 @@ esti_mean_treat(X, Y, A, H = NULL)
 \item{H}{The n by n hat projection matrix corresponding to X.}
 }
 \value{
-the list of point estimation and variance estimation for all kinds of estimators.
-\item{tau_unadj}{The point estimation of the unadjusted estimator tau_unadj.}
-\item{tau_hat_lin}{The point estimation of Lin’s (2013) adjusted estimator.}
-\item{tau_hat_lin_db}{The point estimation of Lei’s (2020) debiased adjusted estimator using population leverage scores.}
-\item{tau_db}{The point estimation of the debiased estimator by Lu et al.(2023).}
-\item{tau_adj2c}{The point estimation of another form of the debiased estimator inspired by HOIF (Zhao et al.(2024)).}
-\item{tau_adj2}{The point estimation of the adjusted estimator motivatied by HOIF (Zhao et al.(2024)).}
-\item{tau_adj3}{The point estimation of the bias-free adjusted estimator based on tau_adj2.}
-\item{var_hat_unadj}{The oracle variance of the unadjusted estimator tau_unadj.}
-\item{var_hat_lin}{The HC3 type variance estimation of Lin’s (2013) adjusted estimator tau_hat_lin.}
-\item{var_hat_lin_db}{The HC3 type variance estimation of Lei’s (2020) adjusted estimator tau_hat_lin_db.}
-\item{var_hat_db}{The variance estimation of the debiased estimator tau_db.}
-\item{var_hat_adj2c_wang}{The variance estimation of the adjusted estimator tau_adj2c where the estimation method follows Lu et al.(2023).}
-\item{var_hat_adj2c_v2}{The variance estimation of the adjusted estimator tau_adj2c using the conservative method introduced in Zhao et al.(2024).}
-\item{var_hat_adj2_wang}{The variance estimation of the adjusted estimator tau_adj2 where the estimation method follows Lu et al.(2023).}
-\item{var_hat_adj2_v2}{The variance estimation of the adjusted estimator tau_adj2 using using the conservative method introduced in Zhao et al.(2024).}
+A list with two named vectors:
+\describe{
+  \item{point_est}{Point estimates for all estimators:
+    \itemize{
+      \item{\code{unadj}:} Unadjusted estimator
+      \item{\code{db}:} Debiased estimator (Lu et al., 2023)
+      \item{\code{adj2c}:} HOIF-inspired debiased estimator (Zhao et al., 2024), the same as \code{db}
+      \item{\code{adj2}:} HOIF-motivated adjusted estimator (Zhao et al., 2024)
+      \item{\code{adj3}:} Bias-free adjusted estimator based on \code{adj2}
+      \item{\code{lin}:} Covariate-adjusted estimator (Lin, 2013)
+      \item{\code{lin_db}:} Debiased estimator with population leverage scores (Lei, 2020)
+    }}
+  \item{var_est}{Variance estimates corresponding to each estimator:
+    \itemize{
+      \item{\code{unadj}:} Variance estimate for unadjusted estimator
+      \item{\code{db}:} Variance estimate for debiased estimator (Lu et al., 2023)
+      \item{\code{adj2c}:} Variance for \code{adj2c}, using formulas given in (Lu et al., 2023)
+      \item{\code{adj2c_v2}:} Conservative variance for \code{adj2c} (Zhao et al., 2024)
+      \item{\code{adj2}:} Variance for \code{adj2}, with formulas  motivated by (Lu et al., 2023)
+      \item{\code{adj2_v2}:} Conservative variance for \code{adj2} (Zhao et al., 2024)
+      \item{\code{adj3}:} Variance for \code{adj3},  with formulas  motivated by (Lu et al., 2023)
+      \item{\code{adj3_v2}:} Conservative variance for \code{adj3} (Zhao et al., 2024)
+      \item{\code{lin}:} HC3-type variance for Lin's (2013) estimator
+      \item{\code{lin_db}:} HC3-type variance for Lei's (2020) estimator
+    }}
+}
 }
 \description{
-Estimate treatment effect and the corresponding variance estimation on the treatment arm using different covariates adjustment methods.
+Implements a unified framework for comparing covariate adjustment method for completely randomized experiments under randomization-based framework.
 }
 \examples{
 set.seed(100)
@@ -67,7 +77,7 @@ print(var_est)
 
 }
 \references{
-Winston Lin. Agnostic notes on regression adjustments to experimental data: Reexamining Freedman’s critique. The Annals of Statistics, 7(1):295–318, 2013.
+Winston Lin. Agnostic notes on regression adjustments to experimental data: Reexamining Freedman's critique. The Annals of Statistics, 7(1):295–318, 2013.
 
 Lihua Lei, Peng Ding. Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, 815–828, 2020.
 
