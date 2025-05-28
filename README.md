@@ -106,7 +106,7 @@ point_est
 var_est
 
 ```
-We next consider the simple randomization experiments with moderately high-dimensional covariates under the randomization-based framework. 
+We next consider the simple randomization experiments with moderately high-dimensional covariates under the Super-Population based framework. 
 ```R
 set.seed(120)
 alpha0 <- 0.1; 
