@@ -128,6 +128,7 @@ X <- data_ls$X;
 A <- data_ls$A
 Y <- data_ls$Y
 
+\dontrun{
 Xc <- scale(X, scale = FALSE)
 Xc_aug <- cbind(1, Xc)
 result.jasa.ls <- fit.JASA(Y, Xc_aug, A, family, opt_obj = 'beta')
@@ -147,7 +148,7 @@ result.jasa.ls <- fit.JASA(Y, Xc_aug, A, family, opt_obj = 'mu')
 result.jasa.ls$tau_vec
 result.jasa.ls$var_tau_vec
 
-\dontrun{
+
 family <- 'binomial'; p_n_ratio <- 0.05
 data_ls <- generate_data_SR(n, family, pi1, p_n_ratio)
 X <- data_ls$X;
