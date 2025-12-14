@@ -28,9 +28,9 @@ pi1 <- 0.5
 n1 <- ceiling(n*pi1)
 
 require(HOIFCar)
-result_adj_db <- get_oracle_bias_var_adj_db(X = X,Y1=Y1,n1=n1) # from LYW paper
-result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1=Y1,n1=n1)
-result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,n1=n1)
+result_adj_db <- get_oracle_bias_var_adj_db(X = X,Y1 = Y1,n1 = n1) # from LYW paper
+result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1 = Y1,n1 = n1)
+result_adj2_3 <- get_oracle_bias_var_adj_2_3(X = X, Y1 = Y1,n1 = n1)
 unlist(result_adj_db)
 unlist(result_adj2c)
 unlist(result_adj2_3)
@@ -41,27 +41,27 @@ unlist(result_adj2_3)
 n <- 500;
 alpha <- 0.2;
 set.seed(1000)
-p <- ceiling(n*alpha)
-Sigma_true <- matrix(0,nrow=p,ncol=p)
+p <- ceiling(n * alpha)
+Sigma_true <- matrix(0, nrow = p, ncol = p)
 for(i in 1:p){
   for(j in 1:p){
-    Sigma_true[i,j] <- 0.1**(abs(i-j))
+    Sigma_true[i, j] <- 0.1**(abs(i - j))
   }
 }
 
 X <- mvtnorm::rmvt(n, sigma = Sigma_true, df = 3)
 beta <- rt(p,3)
 or_baseline <- sign(X %*% beta) * abs(X %*% beta)^(1/2) + sin(X %*% beta)
-epsilon1 <- epsilon0 <- rt(n,3)
+epsilon1 <- epsilon0 <- rt(n, 3)
 Y1 <- 1 + as.numeric(or_baseline) + epsilon1
 
 
 pi1 <- 2/3
-n1 <- ceiling(n*pi1)
+n1 <- ceiling(n * pi1)
 
 result_adj_db <- get_oracle_bias_var_adj_db(X = X, Y1 = Y1, n1 = n1) # from LYW paper
-result_adj2c <- get_oracle_bias_var_adj2c(X = X, Y1=Y1, n1 = n1)
-result_adj2_3 <- get_oracle_bias_var_adj_2_3(X = X, Y1=Y1, n1 = n1)
+result_adj2c <- get_oracle_bias_var_adj2c(X = X, Y1 = Y1, n1 = n1)
+result_adj2_3 <- get_oracle_bias_var_adj_2_3(X = X, Y1 = Y1, n1 = n1)
 unlist(result_adj_db)
 unlist(result_adj2c)
 unlist(result_adj2_3)
@@ -101,10 +101,7 @@ print(var_est)
 ## Estimate ATE using adj2 and adj2c estimators
 Xc <- cbind(1, scale(X, scale = FALSE))
 result.adj2.adj2c.random.ls <-  fit.adj2.adj2c.Random(Y, Xc, A)
-point_est <- result.adj2.adj2c.random.ls$tau_vec
-var_est <- result.adj2.adj2c.random.ls$var_vec
-point_est
-var_est
+result.adj2.adj2c.random.ls
 
 ```
 We next consider the simple randomization experiments with moderately high-dimensional covariates under the Super-Population based framework. 
