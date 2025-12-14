@@ -62,9 +62,8 @@ ind <- sample(n, size = n1)
 A <- rep(0, n)
 A[ind] <- 1
 Y <- Y1 * A + Y0 * (1 - A)
-
-Xc_svd <- svd(X)
-H <- Xc_svd$u \%*\% t(Xc_svd$u)
+Xc <- scale(X, scale = FALSE)
+H <- Xc \%*\% MASS::ginv(t(Xc) \%*\% Xc) \%*\% t(Xc)
 
 result_ls <- esti_mean_treat(X, Y, A, H)
 point_est <- result_ls$point_est
@@ -77,11 +76,8 @@ print(var_est)
 
 }
 \references{
-Winston Lin. Agnostic notes on regression adjustments to experimental data: Reexamining Freedman's critique. The Annals of Statistics, 7(1):295–318, 2013.
-
-Lihua Lei, Peng Ding. Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, 815–828, 2020.
-
-Sihui Zhao, Xinbo Wang, Lin Liu, & Xin Zhang. Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
-
-Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
+Lin, W. (2013). \emph{Agnostic notes on regression adjustments to experimental data: Reexamining Freedman's critique. The Annals of Statistics, Vol. 7(1), 295–318}, \doi{10.1214/12-AOAS583}. \cr
+Lei, L. and Ding, P. (2020) \emph{Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, Vol. 108(4), 815–828}, \doi{10.1093/biomet/asaa103}. \cr
+Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
 }

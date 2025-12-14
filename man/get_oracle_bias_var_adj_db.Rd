@@ -23,6 +23,9 @@ A list of the oracle bias and variance of .
 \description{
 Estimate the oracle bias, the oracle variance of the unadjusted estimator, the adjusted estimator by Lei’s (2020) and the debiased estimator tau_db by Lu et al.(2023).
 }
+\examples{
+NULL
+}
 \references{
 Lihua Lei, Peng Ding. Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, 815–828, 2020.
 

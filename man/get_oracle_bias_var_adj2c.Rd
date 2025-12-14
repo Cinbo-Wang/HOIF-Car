@@ -23,6 +23,9 @@ A list of oracle bias and variance of the debised adjusted estimator tau_adj2c.
 \description{
 Estimate the oracle bias, the exact variance and approximated variance of the debiased estimator tau_adj2c inspired by HOIF (Zhao et al.(2024)).
 }
+\examples{
+NULL
+}
 \references{
 Zhao, S., Wang, X., Liu, L., & Zhang, X. (2024). Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
 }

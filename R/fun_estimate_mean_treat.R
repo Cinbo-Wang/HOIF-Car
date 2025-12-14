@@ -34,17 +34,15 @@
 #'       \item{\code{lin_db}:} HC3-type variance for Lei's (2020) estimator
 #'     }}
 #' }
-#' @export
 #'
 #' @references
-#' Winston Lin. Agnostic notes on regression adjustments to experimental data: Reexamining Freedman's critique. The Annals of Statistics, 7(1):295–318, 2013.
+#' Lin, W. (2013). \emph{Agnostic notes on regression adjustments to experimental data: Reexamining Freedman's critique. The Annals of Statistics, Vol. 7(1), 295–318}, \doi{10.1214/12-AOAS583}. \cr
+#' Lei, L. and Ding, P. (2020) \emph{Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, Vol. 108(4), 815–828}, \doi{10.1093/biomet/asaa103}. \cr
+#' Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+#' Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
 #'
-#' Lihua Lei, Peng Ding. Regression adjustment in completely randomized experiments with a diverging number of covariates. Biometrika, 815–828, 2020.
-#'
-#' Sihui Zhao, Xinbo Wang, Lin Liu, & Xin Zhang. Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
-#'
-#' Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
-#'
+#' @importFrom stats lm resid hat
+#' @importFrom MASS ginv
 #' @examples
 #' set.seed(100)
 #' n <- 500
@@ -61,9 +59,8 @@
 #' A <- rep(0, n)
 #' A[ind] <- 1
 #' Y <- Y1 * A + Y0 * (1 - A)
-#'
-#' Xc_svd <- svd(X)
-#' H <- Xc_svd$u %*% t(Xc_svd$u)
+#' Xc <- scale(X, scale = FALSE)
+#' H <- Xc %*% MASS::ginv(t(Xc) %*% Xc) %*% t(Xc)
 #'
 #' result_ls <- esti_mean_treat(X, Y, A, H)
 #' point_est <- result_ls$point_est
@@ -74,6 +71,7 @@
 #' print('Estimate variance:')
 #' print(var_est)
 #'
+#' @export
 esti_mean_treat <- function(X, Y, A, H = NULL) {
 
   n <- nrow(X)
@@ -86,8 +84,7 @@ esti_mean_treat <- function(X, Y, A, H = NULL) {
 
   Xc <- scale(X, scale = FALSE)
   if (is.null(H)) {
-    Xc_svd <- svd(Xc)
-    H <- Xc_svd$u %*% t(Xc_svd$u)
+    H <- Xc %*% MASS::ginv(t(Xc) %*% Xc) %*% t(Xc)
   }
 
   tau_unadj <- mean(A * Y) / mean(A)
@@ -217,14 +214,30 @@ esti_mean_treat <- function(X, Y, A, H = NULL) {
     )
 
 
-  var_hat_vec <- c(var_hat_unadj,var_hat_db,var_hat_adj2c_wang,var_hat_adj2c_v2,
-                   var_hat_adj2_wang,var_hat_adj2_v2,
-                   var_hat_adj2_wang,var_hat_adj2_v2,
-                   var_hat_lin,var_hat_lin)
-  names(var_hat_vec) <- c('unadj','db','adj2c','adj2c_v2',
-                          'adj2','adj2_v2',
-                          'adj3','adj3_v2',
-                          'lin','lin_db')
+  var_hat_vec <- c(
+    var_hat_unadj,
+    var_hat_db,
+    var_hat_adj2c_wang,
+    var_hat_adj2c_v2,
+    var_hat_adj2_wang,
+    var_hat_adj2_v2,
+    var_hat_adj2_wang,
+    var_hat_adj2_v2,
+    var_hat_lin,
+    var_hat_lin
+  )
+  names(var_hat_vec) <- c(
+    'unadj',
+    'db',
+    'adj2c',
+    'adj2c_v2',
+    'adj2',
+    'adj2_v2',
+    'adj3',
+    'adj3_v2',
+    'lin',
+    'lin_db'
+  )
 
 
   return(list(
@@ -238,40 +251,41 @@ esti_mean_treat <- function(X, Y, A, H = NULL) {
 
 #' 	Covariate-Adjusted Treatment Effect Estimation under the Randomization-based Framework
 #'
-#' Implements the debiased estimators for average treatment effect (ATE) estimation
-#' in completely randomized experiments with moderately high-dimensional covariates.
+#' Implements the (HOIF-inspired) debiased estimators for average treatment effect (ATE)  with variance estimation
+#' using asymptotic-variance. Designed for randomized experiments with moderately high-dimensional covariates.
 #'
 #'
 #' @param Y Numeric vector of length n containing observed responses.
-#' @param X Numeric matrix (n x p) of covariates. Centering is required. May include intercept column.
+#' @param X Numeric matrix (n x p) of covariates. Centering is required. Intercept term can include or not.
 #' @param A Binary vector of length n indicating treatment assignment (1 = treatment, 0 = control).
+#' @param pi1_hat Default is NULL. The assignment probability for the simple randomization.
 #'
-#'
-#' @return A list containing point estimates and variance estimates:
+#' @return A list containing three named vectors, including point estimates and variance estimates:
 #' \describe{
-#'    \item{tau_vec}{Point estimates for adj2 and adj2c:
-#'        \itemize{
-#'          \item{\code{adj2}:} Point estimation of the HOIF-inspired debiased estimator (Zhao et al., 2024).
-#'          \item{\code{adj2c}:} Point estimation of the debiased estimator given by Lu et al. (2023), which is also the HOIF-inspired debiased estimator (Zhao et al., 2024)
-#'        }
-#'    }
-#'    \item{var_vec}{Variance estimates for adj2 and adj2c:
-#'      \itemize{
-#'         \item{\code{adj2}:} Variance estimation of adj2, with formulas inspired by Lu et al. (2023).
-#'         \item{\code{adj2c}:} Variance estimation of adj2c, with formulas given by Lu et al. (2023).
-#'         \item{\code{adj2_v2}:} Variance estimation of adj2, with formulas given in Zhao et al. (2024), which is more conservative  compared to \code{adj2}.
-#'         \item{\code{adj2c_v2}:} Variance estimation of adj2c, with formulas given in Zhao et al. (2024), which is more conservative  compared to \code{adj2c}.
-#'      }
-#'    }
+#'   \item{tau_vec}{Point estimates:
+#'     \itemize{
+#'       \item{\code{adj2}:} Point estimation of the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'       \item{\code{adj2c}:} Point estimation of the debiased estimator given by Lu et al. (2023), which is also the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'     }}
+#'   \item{var_vec_v1}{Variance estimates for adj2 and adj2c, with formulas inspired by Lu et al. (2023).:
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance for \code{adj2c}.
+#'     }}
+#'   \item{var_vec_v2}{Variance estimates for adj2 and adj2c, with formulas given in Zhao et al. (2024), which is more conservative.
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance  for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance  for \code{adj2c}.
+#'     }}
 #' }
-#'
 #' @export
 #'
 #' @references
-#' Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
+#' Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+#' Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
 #'
-#' Sihui Zhao, Xinbo Wang, Lin Liu, & Xin Zhang. Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
-#'
+#' @importFrom stats var
+#' @importFrom MASS ginv
 #' @examples
 #' set.seed(100)
 #' n <- 500
@@ -290,34 +304,46 @@ esti_mean_treat <- function(X, Y, A, H = NULL) {
 #' Y <- Y1 * A + Y0 * (1 - A)
 #'
 #' Xc <- cbind(1, scale(X, scale = FALSE))
-#' result.adj2.adj2c.random.ls <- fit.ate.adj2.adj2c.Random.CRE(Y, Xc, A)
+#' result.adj2.adj2c.random.ls <- fit.ate.adj2.adj2c.Random(Y, Xc, A)
 #' point_est <- result.adj2.adj2c.random.ls$tau_vec
-#' var_est <- result.adj2.adj2c.random.ls$var_vec
+#' var_est_v1 <- result.adj2.adj2c.random.ls$var_vec_v1
+#' var_est_v2 <- result.adj2.adj2c.random.ls$var_vec_v2
 #' point_est
-#' var_est
+#' var_est_v1
+#' var_est_v2
+#'
+#' @keywords internal
+fit.ate.adj2.adj2c.Random <- function(Y, X, A, pi1_hat = NULL) {
 
-fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
 
-  # Calculate variance based on the randomization-based framework given in Wang et.al.
-  # randomization scheme: completely randomized experiment
-  # X is centered, can include constant or not
-
+  # Calculate variance based on the randomization-based framework given in Lu et.al (2023).
+  # randomization scheme: completely randomized experiment, or simple randomization
+  # X is centered, can include constant term or not.
+  # To facilitate the variance calculation, we write the form of adj2, adj2c in term of Lu et.al (2023).
   n <- nrow(X)
   n1 <- sum(A == 1)
   n0 <- n - n1
+
+  if(is.null(pi1_hat)){
+    pi1_hat <- mean(A)
+    r1 <- mean(A)
+  }else{
+    pi1_hat <- pi1_hat
+    r1 <- pi1_hat
+  }
+  pi0_hat <- 1 - pi1_hat
+  r0 <- 1 - r1
 
   ### tau_unadj-
   tau_unadj <- mean(Y[A == 1]) - mean(Y[A == 0])
   var_unadj <- 1 / n * (var(Y[A == 1]) / mean(A) + var(Y[A == 0]) / (1 - mean(A)))
 
   ### tau_db (tau_adj2c)-
-  r1 <- mean(A)
-  r0 <- 1 - r1
   Y1_bar <- mean(Y[A == 1])
   Y0_bar <- mean(Y[A == 0])
 
   S_X2 <- t(X) %*% X / (n)
-  S_X2_inv <- solve(S_X2)
+  S_X2_inv <- MASS::ginv(S_X2)
   S_X1Y1 <- t(X[A == 1, ]) %*% (Y[A == 1] - Y1_bar) / (n1)
   S_X0Y0 <- t(X[A == 0, ]) %*% (Y[A == 0] - Y0_bar) / (n0)
 
@@ -325,18 +351,17 @@ fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
   beta0 <- S_X2_inv %*% S_X0Y0
   tau_adj <- sum(A * (Y - X %*% beta1)) / n1 - sum((1 - A) * (Y - X %*% beta0)) / n0
 
-  H <- X %*% solve(t(X) %*% X)  %*% t(X)
+  H <- X %*% MASS::ginv(t(X) %*% X)  %*% t(X)
   db <- r1 * r0 * (sum(A * diag(H) * (Y - Y1_bar)) / (r1 ^ 2 * n1)
                    - sum((1 - A) * diag(H) * (Y - Y0_bar)) / (r0 ^ 2 * n0))
   tau_adj2c <- tau_adj + db
 
 
-  ### tau_db-
+  ### tau_adj2
   mu1_adj2 <- X %*% (S_X2_inv %*% t(X[A == 1, ]) %*% (Y[A == 1]) / (n1))
   mu0_adj2 <- X %*% (S_X2_inv %*% t(X[A == 0, ]) %*% (Y[A == 0]) / (n0))
   tau_adj2 <- sum(A * (Y - mu1_adj2)) / n1 - sum((1 - A) * (Y - mu0_adj2)) / n0 +
-    r1 * r0 * (sum(A * diag(H) * (Y)) / (r1 ^ 2 * n1) -  sum((1 - A) * diag(H) * (Y)) / (r0 ^
-                                                                                           2 * n0))
+    r1 * r0 * (sum(A * diag(H) * (Y)) / (r1 ^ 2 * n1) -  sum((1 - A) * diag(H) * (Y)) / (r0 ^ 2 * n0))
 
 
   ### var_tau_db (tau_adj2c)
@@ -366,10 +391,9 @@ fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
 
   var_adj2c <-  (I1 + I2 + min(I3_ub, I3_ub_new) + I4_ub) / n
 
-  ##### Next consider another conservative variance estimator of HOIF, and plus I3, I4
+  ##### consider another conservative variance estimator of tau_db (tau_adj2c), and plus I3, I4
   tau1_unadj <- mean(Y[A == 1])
-  pi1_hat <- mean(A)
-  pi0_hat <- 1 - pi1_hat
+
   Y1_sub <- Y[A == 1]
   H1_sub <- H[A == 1, A == 1]
   h <- diag(H)
@@ -381,17 +405,14 @@ fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
                         sum(diag(H1_sub)^2 * (Y1_sub - tau1_unadj)^2)))
 
   Y0_sub <- Y[A == 0]
-
   H0_sub <- H[A == 0, A == 0]
   tau0_unadj <- mean(Y[A == 0])
   resi <- Y - tau0_unadj - (H - diag(diag(H))) %*% ((1 - A) * (Y - tau0_unadj) / pi0_hat) - mean((1 + diag(H)) * (1 - A) * (Y - tau0_unadj) / pi0_hat)
-
   var_tau0_adj2c_v2 <- (pi1_hat/pi0_hat)/n/n*sum((1-A)*resi^2/pi0_hat) +
     (pi1_hat/pi0_hat)^2/n*(
       1/n0*sum((1-A)*h*(1-h)*(Y-tau0_unadj)^2) +
         1/n0/pi0_hat*(t(Y0_sub-tau0_unadj) %*% H0_sub^2 %*% (Y0_sub - tau0_unadj) -
                         sum(diag(H0_sub)^2 * (Y0_sub - tau0_unadj)^2)))
-
 
   var_adj2c_v2 <- as.numeric(var_tau1_adj2c_v2 + var_tau0_adj2c_v2 + (min(I3_ub, I3_ub_new) + I4_ub) / n)
 
@@ -417,9 +438,8 @@ fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
 
   var_adj2 <-  (I1 + I2 + min(I3_ub, I3_ub_new) + I4_ub) / n
 
-  ##### Next consider another conservative variance estimator of HOIF, and plus I3, I4
-  pi1_hat <- mean(A)
-  pi0_hat <- 1 - pi1_hat
+  ##### consider another conservative variance estimator of adj2, and plus I3, I4
+
   Y1_sub <- Y[A == 1]
   H1_sub <- H[A == 1, A == 1]
   h <- diag(H)
@@ -431,29 +451,299 @@ fit.ate.adj2.adj2c.Random.CRE <- function(Y, X, A) {
                         sum(diag(H1_sub)^2 * (Y1_sub)^2)))
 
   Y0_sub <- Y[A == 0]
-
   H0_sub <- H[A == 0, A == 0]
   resi <- Y - (H - diag(diag(H))) %*% ((1 - A) * (Y) / pi0_hat) - mean((1 + diag(H)) * (1 - A) * (Y) / pi0_hat)
-
   var_tau0_adj2_v2 <- (pi1_hat/pi0_hat)/n/n*sum((1-A)*resi^2/pi0_hat) +
     (pi1_hat/pi0_hat)^2/n*(
       1/n0*sum((1-A)*h*(1-h)*(Y)^2) +
         1/n0/pi0_hat*(t(Y0_sub) %*% H0_sub^2 %*% (Y0_sub) -
                         sum(diag(H0_sub)^2 * (Y0_sub)^2)))
-
   var_adj2_v2 <- as.numeric(var_tau1_adj2_v2 + var_tau0_adj2_v2 + (min(I3_ub, I3_ub_new) + I4_ub) / n)
 
 
   tau_vec <- c(tau_adj2, tau_adj2c)
   names(tau_vec) <- c('adj2', 'adj2c')
 
-  var_vec <- c(var_adj2, var_adj2c, var_adj2_v2, var_adj2c_v2)
-  names(var_vec) <- c('adj2', 'adj2c', 'adj2_v2', 'adj2c_v2')
+  # var_vec <- c(var_adj2, var_adj2c, var_adj2_v2, var_adj2c_v2)
+  # names(var_vec) <- c('adj2', 'adj2c', 'adj2_v2', 'adj2c_v2')
 
-  return(list(tau_vec = tau_vec, var_vec = var_vec))
+  var_vec_v1 <- c(var_adj2, var_adj2c)
+  var_vec_v2 <- c(var_adj2_v2, var_adj2c_v2)
+  names(var_vec_v1) <- names(var_vec_v2) <- c('adj2', 'adj2c')
+
+  return(list(tau_vec = tau_vec,
+              var_vec_v1 = var_vec_v1,
+              var_vec_v2 = var_vec_v2))
 
 }
 
+#' 	Covariate-Adjusted Treatment Effect Estimation under the Randomization-based Framework
+#'
+#' Implements the (HOIF-inspired) debiased estimators for treatment effect on the treatment/control arm with variance estimation
+#' using asymptotic-variance. Designed for randomized experiments with moderately high-dimensional covariates.
+#'
+#' @param Y Numeric vector of length n containing observed responses.
+#' @param X Numeric matrix (n x p) of covariates. Centering is required. Intercept term can include or not.
+#' @param A Binary vector of length n indicating treatment assignment (1 = treatment, 0 = control).
+#' @param pi1_hat Default is NULL. The assignment probability for the simple randomization.
+#'
+#' @return A list containing three named vectors, including point estimates and variance estimates:
+#' \describe{
+#'   \item{tau_vec}{Point estimates:
+#'     \itemize{
+#'       \item{\code{adj2}:} Point estimation of the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'       \item{\code{adj2c}:} Point estimation of the debiased estimator given by Lu et al. (2023), which is also the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'     }}
+#'   \item{var_vec_v1}{Variance estimates for adj2 and adj2c, with formulas inspired by Lu et al. (2023).:
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance for \code{adj2c}.
+#'     }}
+#'   \item{var_vec_v2}{Variance estimates for adj2 and adj2c, with formulas given in Zhao et al. (2024), which is more conservative.
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance  for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance  for \code{adj2c}.
+#'     }}
+#' }
+#' @export
+#'
+#' @references
+#' Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+#' Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
+#'
+#' @importFrom stats var
+#' @examples
+#' set.seed(100)
+#' n <- 500
+#' p <- n * 0.3
+#' beta <- runif(p, -1 / sqrt(p), 1 / sqrt(p))
+#'
+#' X <- mvtnorm::rmvt(n, sigma = diag(1, p), df = 3)
+#' Y1 <- as.numeric(X %*% beta)
+#' Y0 <- as.numeric(X %*% beta - 1)
+#'
+#' pi1 <- 2/3
+#' n1 <- ceiling(n * pi1)
+#' ind <- sample(n, size = n1)
+#' A <- rep(0, n)
+#' A[ind] <- 1
+#' Y <- Y1 * A + Y0 * (1 - A)
+#'
+#' Xc <- cbind(1, scale(X, scale = FALSE))
+#' result.adj2.adj2c.random.ls <- fit.treat.adj2.adj2c.Random(Y, Xc, A)
+#' point_est <- result.adj2.adj2c.random.ls$tau_vec
+#' var_est_v1 <- result.adj2.adj2c.random.ls$var_vec_v1
+#' var_est_v2 <- result.adj2.adj2c.random.ls$var_vec_v2
+#' point_est
+#' var_est_v1
+#' var_est_v2
+#'
+#' @keywords internal
+fit.treat.adj2.adj2c.Random <- function(Y, X, A, pi1_hat = NULL) {
+
+  # Calculate variance based on the randomization-based framework given in Lu et.al (2023).
+  # randomization scheme: completely randomized experiment, or simple randomization
+  # X is centered, can include constant term or not.
+  # To facilitate the variance calculation, we write the form of adj2, adj2c in term of Lu et.al (2023).
+
+  n <- nrow(X)
+  n1 <- sum(A == 1)
+  n0 <- n - n1
+  Y[A == 0] <- 0
+  if(is.null(pi1_hat)){
+    pi1_hat <- mean(A)
+    r1 <- mean(A)
+  }else{
+    pi1_hat <- pi1_hat
+    r1 <- pi1_hat
+  }
+  pi0_hat <- 1 - pi1_hat
+  r0 <- 1 - r1
+
+  ### tau_unadj-
+  tau_unadj <- mean(Y[A == 1])
+  var_unadj <- 1 / n * (var(Y[A == 1]) / mean(A))
+
+  ### tau_db (tau_adj2c)-
+  Y1_bar <- mean(Y[A == 1])
+
+  S_X2 <- t(X) %*% X / (n)
+  S_X2_inv <- MASS::ginv(S_X2)
+  S_X1Y1 <- t(X[A == 1, ]) %*% (Y[A == 1] - Y1_bar) / (n1)
+
+  beta1 <- S_X2_inv %*% S_X1Y1
+  tau_adj <- sum(A * (Y - X %*% beta1)) / n1
+
+  H <- X %*% MASS::ginv(t(X) %*% X)  %*% t(X)
+  db <- r1 * r0 * (sum(A * diag(H) * (Y - Y1_bar)) / (r1 ^ 2 * n1))
+  tau_adj2c <- tau_adj + db
+
+
+  ### tau_adj2
+  mu1_adj2 <- X %*% (S_X2_inv %*% t(X[A == 1, ]) %*% (Y[A == 1]) / (n1))
+  tau_adj2 <- sum(A * (Y - mu1_adj2)) / n1 + r1 * r0 * (sum(A * diag(H) * (Y)) / (r1 ^ 2 * n1))
+
+
+  ### var_tau_db (tau_adj2c)
+  Q <- H ^ 2
+  diag(Q) <- diag(H) - diag(H) ^ 2
+  M <- diag(n) - matrix(1 / n, n, n) - H + (diag(n) - matrix(1 / n, n, n)) %*% diag(diag(H))
+  B <- t(M) %*% M
+  I1 <- func_vec_s2(q = r1 * r0 * diag(Q), y = Y / r1 ** 2, Z = A, z = 1) + func_vec_s2(q = r1 * r0 * diag(Q), y = Y / r0 ** 2, Z = A, z = 0) +
+    func_vec_s2(q=diag(B)/r1**2,y=Y,Z=A,z=1) + func_vec_s2(q=diag(B)/r0**2,y=Y,Z=A,z=0)
+  I1 <- r1 * r0 * I1
+
+  I2 <- func_mat_s2(Q = r1 * r0 * Q, Y = Y / r1 ** 2, Z = A, z = 1) + func_mat_s2(Q = r1 * r0 * Q, Y = Y / r0 ** 2, Z = A, z = 0) +
+    func_mat_s2(Q=B/r1**2,Y=Y,Z=A,z=1) + func_mat_s2(Q=B/r0**2,Y=Y,Z=A,z=0)
+  I2 <- r1 * r0 * I2
+
+  var_adj2c <- (I1 + I2) / n
+
+  ##### consider another conservative variance estimator of tau_db (tau_adj2c), and plus I3, I4
+  tau1_unadj <- mean(Y[A == 1])
+  Y1_sub <- Y[A == 1]
+  H1_sub <- H[A == 1, A == 1]
+  h <- diag(H)
+  resi <- Y - tau1_unadj - (H - diag(diag(H))) %*% (A * (Y - tau1_unadj) / pi1_hat) - mean((1 + diag(H)) * A * (Y - tau1_unadj) / pi1_hat)
+  var_tau1_adj2c_v2 <- (pi0_hat/pi1_hat)/n/n*sum(A*resi^2/pi1_hat) +
+    (pi0_hat/pi1_hat)^2/n*(
+      1/n1*sum(A*h*(1-h)*(Y-tau1_unadj)^2) +
+        1/n1/pi1_hat*(t(Y1_sub-tau1_unadj) %*% H1_sub^2 %*% (Y1_sub - tau1_unadj) -
+                        sum(diag(H1_sub)^2 * (Y1_sub - tau1_unadj)^2)))
+
+
+  var_adj2c_v2 <- as.numeric(var_tau1_adj2c_v2)
+
+
+  # var_tau_adj2
+  I1 <- func_vec_s2(q=r1*r0*diag(Q),y=Y/r1**2,Z=A,z=1,is.center = F) + func_vec_s2(q=r1*r0*diag(Q),y=Y/r0**2,Z=A,z=0,is.center = F) +
+    func_vec_s2(q=diag(B)/r1**2,y=Y,Z=A,z=1,is.center = F) + func_vec_s2(q=diag(B)/r0**2,y=Y,Z=A,z=0,is.center = F)
+  I1 <- r1 * r0 * I1
+  I2 <- func_mat_s2(Q=r1*r0*Q,Y=Y/r1**2,Z=A,z=1,is.center = F) + func_mat_s2(Q=r1*r0*Q,Y=Y/r0**2,Z=A,z=0,is.center = F) +
+    func_mat_s2(Q=B/r1**2,Y=Y,Z=A,z=1,is.center = F) + func_mat_s2(Q=B/r0**2,Y=Y,Z=A,z=0,is.center = F)
+  I2 <- r1 * r0 * I2
+
+  var_adj2 <- (I1 + I2) / n
+
+  ##### consider another conservative variance estimator of adj2, and plus I3, I4
+  Y1_sub <- Y[A == 1]
+  H1_sub <- H[A == 1, A == 1]
+  h <- diag(H)
+  resi <- Y - (H - diag(diag(H))) %*% (A*(Y)/pi1_hat) - mean((1+diag(H))*A*(Y)/pi1_hat)
+  var_tau1_adj2_v2 <- (pi0_hat/pi1_hat)/n/n*sum(A*resi^2/pi1_hat) +
+    (pi0_hat/pi1_hat)^2/n*(
+      1/n1*sum(A*h*(1-h)*(Y)^2) +
+        1/n1/pi1_hat*(t(Y1_sub) %*% H1_sub^2 %*% (Y1_sub) -
+                        sum(diag(H1_sub)^2 * (Y1_sub)^2)))
+
+  var_adj2_v2 <- as.numeric(var_tau1_adj2_v2)
+
+
+  tau_vec <- c(tau_adj2, tau_adj2c)
+  names(tau_vec) <- c('adj2', 'adj2c')
+
+
+  var_vec_v1 <- c(var_adj2, var_adj2c)
+  var_vec_v2 <- c(var_adj2_v2, var_adj2c_v2)
+  names(var_vec_v1) <- names(var_vec_v2) <- c('adj2', 'adj2c')
+
+  return(list(tau_vec = tau_vec,
+              var_vec_v1 = var_vec_v1,
+              var_vec_v2 = var_vec_v2))
+
+}
+
+
+#' Covariate-Adjusted Treatment Effect Estimation under the Randomization-based Framework
+#'
+#' Implements the (HOIF-inspired) debiased estimators for average treatment effect (ATE) or treatment effect on the treatment/control arm with variance estimation
+#' using asymptotic-variance. Designed for randomized experiments with moderately high-dimensional covariates.
+#'
+#'
+#' @param Y Numeric vector of length n containing observed responses.
+#' @param X Numeric matrix (n x p) of covariates. Centering is required. Intercept term can include or not.
+#' @param A Binary vector of length n indicating treatment assignment (1 = treatment, 0 = control).
+#' @param pi1 Default is NULL. The assignment probability for the randomization assignment.
+#' @param target A character string specifying the target estimand. Must be one of:
+#'   - `"ATE"` (default): Average Treatment Effect (difference between treatment and control arms).
+#'   - `"EY1"`: Expected outcome under treatment (estimates the effect for the treated group).
+#'   - `"EY0"`: Expected outcome under control (estimates the effect for the control group).
+#'
+#' @return A list containing three named vectors, including point estimates and variance estimates:
+#' \describe{
+#'   \item{tau_vec}{Point estimates:
+#'     \itemize{
+#'       \item{\code{adj2}:} Point estimation of the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'       \item{\code{adj2c}:} Point estimation of the debiased estimator given by Lu et al. (2023), which is also the HOIF-inspired debiased estimator given by Zhao et al.(2024).
+#'     }}
+#'   \item{var_vec_v1}{Variance estimates for adj2 and adj2c, with formulas inspired by Lu et al. (2023).:
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance for \code{adj2c}.
+#'     }}
+#'   \item{var_vec_v2}{Variance estimates for adj2 and adj2c, with formulas given in Zhao et al. (2024), which is more conservative.
+#'     \itemize{
+#'       \item{\code{adj2}:} Variance  for \code{adj2}.
+#'       \item{\code{adj2c}:} Variance  for \code{adj2c}.
+#'     }}
+#' }
+#' @export
+#'
+#' @references
+#' Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+#' Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
+#'
+#' @importFrom stats var
+#' @examples
+#' set.seed(100)
+#' n <- 500
+#' p <- n * 0.3
+#' beta <- runif(p, -1 / sqrt(p), 1 / sqrt(p))
+#'
+#' X <- mvtnorm::rmvt(n, sigma = diag(1, p), df = 3)
+#' Y1 <- as.numeric(X %*% beta)
+#' Y0 <- as.numeric(X %*% beta - 1)
+#'
+#' pi1 <- 2/3
+#' n1 <- ceiling(n * pi1)
+#' ind <- sample(n, size = n1)
+#' A <- rep(0, n)
+#' A[ind] <- 1
+#' Y <- Y1 * A + Y0 * (1 - A)
+#'
+#' Xc <- cbind(1, scale(X, scale = FALSE))
+#' result.adj2.adj2c.random.ate.ls <- fit.adj2.adj2c.Random(Y, Xc, A, target = 'ATE')
+#' result.adj2.adj2c.random.ate.ls
+#'
+#' result.adj2.adj2c.random.treat.ls <- fit.adj2.adj2c.Random(Y, Xc, A, target = 'EY1')
+#' result.adj2.adj2c.random.treat.ls
+#'
+#' result.adj2.adj2c.random.control.ls <- fit.adj2.adj2c.Random(Y, Xc, A, target = 'EY0')
+#' result.adj2.adj2c.random.control.ls
+
+fit.adj2.adj2c.Random <- function(Y,
+                                  X,
+                                  A,
+                                  pi1 = NULL,
+                                  target = 'ATE') {
+
+  result.ls <- switch(target,
+                      'ATE' = {
+                        fit.ate.adj2.adj2c.Random(Y, X, A, pi1)
+                      },
+                      'EY1' = {
+                        fit.treat.adj2.adj2c.Random(Y, X, A, pi1)
+                      },
+                      'EY0' = {
+                        if(is.null(pi1)){
+                          fit.treat.adj2.adj2c.Random(Y, X, 1 - A)
+                        }else{
+                          fit.treat.adj2.adj2c.Random(Y, X, 1 - A, 1 - pi1)
+                        }
+                      })
+  return(result.ls)
+
+}
 
 #' @keywords internal
 func_vec_s2 <- function(q, y, Z, z, is.center = TRUE) {
@@ -509,17 +799,23 @@ func_mat_cross <- function(H, Y, Z, is.center = TRUE) {
 
 #' Covariate-Adjusted Treatment Effect Estimation under the Super-Population Framework
 #'
-#' Implements HOIF-inspired debiased estimators for average treatment effect (ATE) with variance estimation
-#' using influence function-based and asymptotic-variance. Designed for simple randomization experiments with moderately high-dimensional covariates.
+#' Implements HOIF-inspired debiased estimators for average treatment effect (ATE)  or treatment effect on the treatment/control arm with variance estimation
+#' using influence function-based and asymptotic-variance. Designed for randomized experiments with moderately high-dimensional covariates.
 #'
 #'
 #' @param Y Numeric vector of length n containing observed responses.
 #' @param X Numeric matrix (n x p) of covariates. Centering is required. May include intercept column.
 #' @param A Binary vector of length n indicating treatment assignment (1 = treatment, 0 = control).
 #' @param intercept Logical. If TRUE (default), X already contains intercept. Set FALSE if X does not contain intercept.
-#' @param pi1_hat Default is NULL. The assignment probability for the simple randomization.
+#' @param pi1 The assignment probability for the randomization assignment. If `NULL` (the default), the empirical assignment probability is used.
+#' @param target A character string specifying the target estimand. Must be one of:
+#'   - `"ATE"` (default): Average Treatment Effect (difference between treatment and control arms).
+#'   - `"EY1"`: Expected outcome under treatment (estimates the effect for the treated group).
+#'   - `"EY0"`: Expected outcome under control (estimates the effect for the control group).
+#' @param lc Default is FALSE. If TRUE, then performs linear calibration to achieve efficiency gain using \eqn{\hat{\mu}_0(X_i)} and \eqn{\hat{\mu}_1(X_i)}.
 #'
-#' @return A list containing three named vectors:
+#'
+#' @return A list containing three named vectors, including point estimates and variance estimates:
 #' \describe{
 #'   \item{tau_vec}{Point estimates:
 #'     \itemize{
@@ -531,7 +827,7 @@ func_mat_cross <- function(H, Y, Z, is.center = TRUE) {
 #'       \item{\code{adj2}:} Variance for \code{adj2} via the sample variance of its influence function formula.
 #'       \item{\code{adj2c}:} Variance for \code{adj2c} via the sample variance of its influence function formula.
 #'     }}
-#'   \item{var_rb_vec}{Variance estimates inspired by RobinCar:
+#'   \item{var_rb_vec}{Variance estimates inspired by Bannick et al. (2025):
 #'     \itemize{
 #'       \item{\code{adj2}:} Variance  for \code{adj2} following the asymptotic variance given by Bannick et al. (2025).
 #'       \item{\code{adj2c}:} Variance  for \code{adj2c} following the asymptotic variance given by Bannick et al. (2025).
@@ -541,12 +837,12 @@ func_mat_cross <- function(H, Y, Z, is.center = TRUE) {
 #' @export
 #'
 #' @references
-#' Marlena S. Bannick, Jun Shao, Jingyi Liu, Yu Du, Yanyao Yi, Ting Ye (2025). A General Form of Covariate Adjustment in Randomized Clinical Trials. Biometrika.
+#' Bannick, M. S., Shao, J., Liu, J., Du, Y., Yi, Y. and Ye, T. (2025) \emph{A General Form of Covariate Adjustment in Clinical Trials under Covariate-Adaptive Randomization. Biometrika, Vol. xx(x), 1-xx}, \doi{10.1093/biomet/asaf029}.\cr
+#' Lu, X., Yang, F. and Wang, Y. (2023) \emph{Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint, arXiv:2309.02073}, \doi{10.48550/arXiv.2309.02073}. \cr
+#' Zhao, S., Wang, X., Liu, L. and Zhang, X. (2024) \emph{Covariate Adjustment in Randomized Experiments Motivated by Higher-Order Influence Functions. arXiv preprint, arXiv:2411.08491}, \doi{10.48550/arXiv.2411.08491}.
 #'
-#' Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
-#'
-#' Sihui Zhao, Xinbo Wang, Lin Liu, & Xin Zhang. Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
-#'
+#' @importFrom stats var predict lm sd
+#' @importFrom MASS ginv
 #' @examples
 #'
 #' set.seed(120)
@@ -579,28 +875,38 @@ func_mat_cross <- function(H, Y, Z, is.center = TRUE) {
 #' Y <- A * Y1 + (1 - A) * Y0
 #'
 #' Xc <- cbind(1, scale(X, scale = FALSE))
-#' result.ate.adj2.adj2c.sp.ls <- fit.ate.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE)
-#' result.ate.adj2.adj2c.sp.ls
-#'
+#' result.adj2.adj2c.sp.ate.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+#'                                                     target = 'ATE', lc = TRUE)
+#' result.adj2.adj2c.sp.ate.ls
+#' result.adj2.adj2c.sp.treat.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+#'                                                       target = 'EY1', lc = TRUE)
+#' result.adj2.adj2c.sp.treat.ls
+#' result.adj2.adj2c.sp.control.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+#'                                                         target = 'EY0', lc = TRUE)
+#' result.adj2.adj2c.sp.control.ls
 
-fit.ate.adj2.adj2c.Super.SR <- function(Y,
-                                        X,
-                                        A,
-                                        intercept = TRUE,
-                                        pi1_hat = NULL) {
+
+fit.adj2.adj2c.Super <- function(Y,
+                                 X,
+                                 A,
+                                 intercept = TRUE,
+                                 pi1 = NULL,
+                                 target = 'ATE',
+                                 lc = FALSE) {
 
   # Estimate ATE and its variance based on influence function and Robincar's variance estimator under the Super-Population based framework.
-  # randomization scheme: simple randomization
+  # randomization scheme: simple, CRE
   # X is centered, can include constant or not
 
   n <- nrow(X)
   n1 <- sum(A == 1)
   n0 <- n - n1
 
-  if(is.null(pi1_hat)){
+  if(is.null(pi1)){
     pi1_hat <- mean(A)
+  }else{
+    pi1_hat <- pi1
   }
-
 
   ### tau_unadj-
   tau_unadj <- mean(Y[A == 1]) - mean(Y[A == 0])
@@ -608,29 +914,71 @@ fit.ate.adj2.adj2c.Super.SR <- function(Y,
 
 
   #### adj2
-  H <- X %*% solve(t(X) %*% X) %*% t(X)
+  H <- X %*% MASS::ginv(t(X) %*% X) %*% t(X)
 
   yt_adj2_hat <- as.numeric((H - diag(diag(H))) %*% (A * Y / pi1_hat))
   yc_adj2_hat <- as.numeric((H - diag(diag(H))) %*% ((1 - A) * Y / (1 - pi1_hat)))
+
+
+  ## If consider linear calibration
+  is_cal <- FALSE
+  if(lc){
+    Xtilde <- data.frame(y = Y, mu1 = yt_adj2_hat, mu0 = yc_adj2_hat)
+    fit1.adj <- lm(y~., data = Xtilde, subset = (A == 1))
+    fit0.adj <- lm(y~., data = Xtilde, subset = (A == 0))
+
+    yt_adj2_cal_hat <- predict(fit1.adj, newdata = Xtilde)
+    yc_adj2_cal_hat <- predict(fit0.adj, newdata = Xtilde)
+
+    p <- ncol(X)
+    if(p < 10){
+      width <- max(Y) - min(Y)
+      lb <- min(Y) - 0.1 * width; ub <- max(Y) + 0.1 * width
+    }else{
+      lb <- -Inf; ub <- Inf
+    }
+    cond1 <- (min(yc_adj2_cal_hat) > lb & max(yc_adj2_cal_hat) < ub)
+    cond2 <- (min(yt_adj2_cal_hat) > lb & max(yt_adj2_cal_hat) < ub)
+    if((cond1 & cond2)){
+      yt_adj2_hat <- yt_adj2_cal_hat
+      yc_adj2_hat <- yc_adj2_cal_hat
+      is_cal <- TRUE
+    }
+  }
 
   psi1_adj2_vec <- A * Y / pi1_hat + (1 - A / pi1_hat) * yt_adj2_hat
   psi0_adj2_vec <- (1 - A) * Y / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2_hat
   tau1_adj2 <- mean(psi1_adj2_vec)
   tau0_adj2 <- mean(psi0_adj2_vec)
 
-  if(intercept){
-    infl1_adj2 <- psi1_adj2_vec - tau1_adj2
-    infl0_adj2 <- psi0_adj2_vec - tau0_adj2
-  }else{
+  if(is_cal == FALSE & intercept == FALSE){
+    # Only when no calibration and no intercept term, we use this formula.
     infl1_adj2 <- A * (Y - tau1_adj2) / pi1_hat + (1 - A / pi1_hat) * yt_adj2_hat
     infl0_adj2 <- (1 - A) * (Y - tau0_adj2) / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2_hat
+  }else{
+    infl1_adj2 <- psi1_adj2_vec - tau1_adj2
+    infl0_adj2 <- psi0_adj2_vec - tau0_adj2
   }
 
-  tau_adj2 <- tau1_adj2 - tau0_adj2
+  # if(intercept){
+  #   infl1_adj2 <- psi1_adj2_vec - tau1_adj2
+  #   infl0_adj2 <- psi0_adj2_vec - tau0_adj2
+  # }else{
+  #   infl1_adj2 <- A * (Y - tau1_adj2) / pi1_hat + (1 - A / pi1_hat) * yt_adj2_hat
+  #   infl0_adj2 <- (1 - A) * (Y - tau0_adj2) / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2_hat
+  # }
 
+  # tau_adj2 <- tau1_adj2 - tau0_adj2
+  # var_infl_tau_adj2 <- 1 / n * mean((infl1_adj2 - infl0_adj2)**2)
 
-  ## variance using IF
-  var_infl_tau_adj2 <- 1 / n * mean((infl1_adj2 - infl0_adj2)**2)
+  tau_adj2 <- switch(target,
+                     'ATE' = tau1_adj2 - tau0_adj2,
+                     'EY1' = tau1_adj2,
+                     'EY0' = tau0_adj2)
+  var_infl_tau_adj2 <- switch(target,
+                              'ATE' = {1 / n * mean((infl1_adj2 - infl0_adj2)**2)},
+                              'EY1' = {1 / n * mean((infl1_adj2)**2)},
+                              'EY0' = {1 / n * mean((infl0_adj2)**2)})
 
 
   ### Codes from Bannick et al.
@@ -651,7 +999,18 @@ fit.ate.adj2.adj2c.Super.SR <- function(Y,
 
   Vhat_adj2 <- get.cov.robincar(cbind(yc_adj2_hat, yt_adj2_hat))
   diff_mat <- matrix(c(-1,1),nrow=2)
-  var_rb_tau_adj2 <- 1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2 %*% diff_mat)
+
+  # var_rb_tau_adj2 <- 1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2 %*% diff_mat)
+  var_rb_tau_adj2 <- switch(target,
+                            'ATE' = {
+                              1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2 %*% diff_mat)
+                            },
+                            'EY1' = {
+                              1 / n * Vhat_adj2[2, 2]
+                            },
+                            'EY0' = {
+                              1 / n * Vhat_adj2[1, 1]
+                            })
 
 
   # adj2c
@@ -659,21 +1018,68 @@ fit.ate.adj2.adj2c.Super.SR <- function(Y,
   yt_adj2c_hat <- as.numeric((H - diag(diag(H))) %*% (A * (Y - tau1_unadj) / pi1_hat))
   yc_adj2c_hat <- as.numeric((H - diag(diag(H))) %*% ((1 - A) * (Y - tau0_unadj) / (1 - pi1_hat)))
 
+
+  is_cal <- FALSE
+  if(lc){
+    Xtilde <- data.frame(y = Y, mu1 = yt_adj2c_hat, mu0 = yc_adj2c_hat)
+    fit1.adj <- lm(y~., data = Xtilde,subset = (A == 1))
+    fit0.adj <- lm(y~., data = Xtilde,subset = (A == 0))
+
+    yt_adj2c_cal_hat <- predict(fit1.adj, newdata = Xtilde)
+    yc_adj2c_cal_hat <- predict(fit0.adj, newdata = Xtilde)
+
+    cond1 <- (min(yc_adj2c_cal_hat) > lb & max(yc_adj2c_cal_hat) < ub)
+    cond2 <- (min(yt_adj2c_cal_hat) > lb & max(yt_adj2c_cal_hat) < ub)
+    if((cond1 & cond2)){
+      yt_adj2c_hat <- yt_adj2c_cal_hat
+      yc_adj2c_hat <- yc_adj2c_cal_hat
+      is_cal <- TRUE
+    }
+  }
+
   psi1_adj2c_vec <- A * Y / pi1_hat + (1 - A / pi1_hat) * yt_adj2c_hat
   psi0_adj2c_vec <- (1 - A) * Y / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2c_hat
   tau1_adj2c <- mean(psi1_adj2c_vec)
   tau0_adj2c <- mean(psi0_adj2c_vec)
 
-  infl1_adj2c <- A * (Y - tau1_adj2c) / pi1_hat + (1 - A / pi1_hat) * yt_adj2c_hat
-  infl0_adj2c <- (1 - A) * (Y - tau0_adj2c) / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2c_hat
+  if(is_cal){
+    infl1_adj2c <- A * (Y) / pi1_hat + (1 - A / pi1_hat) * yt_adj2c_hat - tau1_adj2c
+    infl0_adj2c <- (1 - A) * (Y) / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2c_hat - tau0_adj2c
+  }else{
+    infl1_adj2c <- A * (Y - tau1_adj2c) / pi1_hat + (1 - A / pi1_hat) * yt_adj2c_hat
+    infl0_adj2c <- (1 - A) * (Y - tau0_adj2c) / (1 - pi1_hat) + (1 - (1 - A) / (1 - pi1_hat)) * yc_adj2c_hat
+  }
 
-  tau_adj2c <- tau1_adj2c - tau0_adj2c
 
-
-  var_infl_tau_adj2c <- 1 / n * mean((infl1_adj2c - infl0_adj2c)**2)
-
+  # tau_adj2c <- tau1_adj2c - tau0_adj2c
+  # var_infl_tau_adj2c <- 1 / n * mean((infl1_adj2c - infl0_adj2c)**2)
   Vhat_adj2c <- get.cov.robincar(cbind(yc_adj2c_hat, yt_adj2c_hat))
-  var_rb_tau_adj2c <- 1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2c %*% diff_mat)
+  # var_rb_tau_adj2c <- 1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2c %*% diff_mat)
+
+  tau_adj2c <- switch(target,
+                      'ATE' = tau1_adj2c - tau0_adj2c,
+                      'EY1' = tau1_adj2c,
+                      'EY0' = tau0_adj2c)
+  var_infl_tau_adj2c <- switch(target,
+                               'ATE' = {
+                                 1 / n * mean((infl1_adj2c - infl0_adj2c) ** 2)
+                               },
+                               'EY1' = {
+                                 1 / n * mean((infl1_adj2c) ** 2)
+                               },
+                               'EY0' = {
+                                 1 / n * mean((infl0_adj2c) ** 2)
+                               })
+  var_rb_tau_adj2c <- switch(target,
+                            'ATE' = {
+                              1 / n * as.numeric(t(diff_mat) %*% Vhat_adj2c %*% diff_mat)
+                            },
+                            'EY1' = {
+                              1 / n * Vhat_adj2c[2, 2]
+                            },
+                            'EY0' = {
+                              1 / n * Vhat_adj2c[1, 1]
+                            })
 
 
   tau_vec <- c(tau_adj2, tau_adj2c)
@@ -692,106 +1098,3 @@ fit.ate.adj2.adj2c.Super.SR <- function(Y,
 }
 
 
-#' Covariate-Adjusted Treatment Effect Estimation under the Super-Population Framework
-#'
-#' Implements HOIF-inspired debiased estimators for  treatment effect on the treatment/control arm, with variance estimation
-#' using influence function-based and asymptotic-variance. Designed for simple randomization experiments with moderately high-dimensional covariates.
-#'
-#' @param Y Numeric vector of length n containing observed responses.
-#' @param X Numeric matrix (n x p) of covariates. Centering is required. May include intercept column.
-#' @param A Binary vector of length n indicating treatment assignment (1 = treatment, 0 = control).
-#' @param intercept Logical. If TRUE (default), X already contains intercept. Set FALSE if X does not contain intercept.
-#' @param Treated Logical. If TRUE (default), consider the treatment arm. Set FALSE if considering the control arm.
-#' @param pi1_hat Default is NULL. The assignment probability for the simple randomization.
-#'
-#'
-#' @return A list containing three named vectors:
-#' \describe{
-#'   \item{tau_vec}{Point estimates:
-#'     \itemize{
-#'       \item{\code{adj2}:} Point estimation of the HOIF-inspired debiased estimator (Zhao et al., 2024).
-#'       \item{\code{adj2c}:} Point estimation of the the HOIF-inspired debiased estimator (Zhao et al., 2024), which is also the debiased estimator given by Lu et al. (2023).
-#'     }}
-#'   \item{var_infl_vec}{Influence function-based variance estimates:
-#'     \itemize{
-#'       \item{\code{adj2}:} Variance for \code{adj2} via the sample variance of its influence function formula.
-#'       \item{\code{adj2c}:} Variance for \code{adj2c} via the sample variance of its influence function formula.
-#'     }}
-#'   \item{var_rb_vec}{Variance estimates inspired by RobinCar:
-#'     \itemize{
-#'       \item{\code{adj2}:} Variance  for \code{adj2} following the asymptotic variance given by Bannick et al. (2025).
-#'       \item{\code{adj2c}:} Variance  for \code{adj2c} following the asymptotic variance given by Bannick et al. (2025).
-#'     }}
-#' }
-#' @export
-#'
-#' @references
-#' Marlena S. Bannick, Jun Shao, Jingyi Liu, Yu Du, Yanyao Yi, Ting Ye (2025). A General Form of Covariate Adjustment in Randomized Clinical Trials. Biometrika.
-#'
-#' Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
-#'
-#' Sihui Zhao, Xinbo Wang, Lin Liu, & Xin Zhang. Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491.
-#'
-#' @examples
-#'
-#' set.seed(120)
-#' alpha0 <- 0.1;
-#' n <- 400;
-#'
-#' p0 <- ceiling(n * alpha0)
-#' beta0_full <- 1 / (1:p0) ^ (1 / 2) * (-1) ^ c(1:p0)
-#' beta <- beta0_full / norm(beta0_full,type='2')
-#'
-#' Sigma_true <- matrix(0, nrow = p0, ncol = p0)
-#' for (i in 1:p0) {
-#'   for (j in 1:p0) {
-#'     Sigma_true[i, j] <- 0.1 ** (abs(i - j))
-#'   }
-#' }
-#'
-#' X <- mvtnorm::rmvt(n, sigma = Sigma_true, df = 3)
-#'
-#' lp0 <- X %*% beta
-#' delta_X <- 1  -  1/4 * X[, 2] -  1/8 * X[, 3]
-#' lp1 <- lp0 + delta_X
-#'
-#' Y0 <- lp0 + rnorm(n)
-#' Y1 <- lp1 + rnorm(n)
-#'
-#'
-#' pi1 <- 1 / 2
-#' A <- rbinom(n, size = 1, prob = pi1)
-#' Y <- A * Y1 + (1 - A) * Y0
-#'
-#' Xc <- cbind(1, scale(X, scale = FALSE))
-#' result.treat.adj2.adj2c.sp.ls <- fit.mean.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE, Treated = TRUE)
-#' result.control.adj2.adj2c.sp.ls <- fit.mean.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE, Treated = FALSE)
-#' result.treat.adj2.adj2c.sp.ls
-#' result.control.adj2.adj2c.sp.ls
-#'
-fit.mean.adj2.adj2c.Super.SR <- function(Y,
-                                         X,
-                                         A,
-                                         intercept = FALSE,
-                                         Treated = TRUE,
-                                         pi1_hat = NULL) {
-
-  # calculate variance based on influence function and Robincar's variance estimator under the super-population based framework
-  # randomization scheme: simple randomization
-  # X is centered, can include constant or not
-  # Treated: if TRUE, estimate E[Y(1)] and its variance
-
-  n <- nrow(X)
-
-  A_new <- rep(0, n)
-  if(Treated){
-    A_new[A == 1] <- 1
-  }else{
-    A_new[A == 0] <- 1
-  }
-  A <- A_new
-  Y[A == 0] <- 0
-
-  result.ls <- fit.ate.adj2.adj2c.Super.SR(Y, X, A, intercept, pi1_hat)
-  return(result.ls)
-}
