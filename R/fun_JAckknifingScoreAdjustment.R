@@ -418,7 +418,7 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
     # Step 3: If no solution exist or BBsolve does not converge, use optim
     if(!is_converge){
-      l1_sub_fun <- function(beta){
+      l1_fun <- function(beta){
         term1 <- as.numeric(t(X_negi) %*% Y1tilde_negi / (n - 1))
         u <- as.numeric(1 / (1 + exp(-X_sub %*% beta)))
         term2 <- as.numeric(t(X_sub) %*% u / nrow(X_sub))
@@ -426,7 +426,7 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
         fval <- sum(score_diff**2 * 10^6) / (2 * length(score_diff))
         return(fval)
       }
-      grad_l1_sub_fun <- function(beta){
+      grad_l1_fun <- function(beta){
         u <- as.numeric(1 / (1 + exp(-X_sub %*% beta)))
         grad <- - 1 / nrow(X_sub) * t(X_sub) %*% diag(u * (1 - u)) %*% X_sub %*% (t(X_negi) %*% Y1tilde_negi / (n - 1) - t(X_sub) %*% u / nrow(X_sub))
         grad <- grad / length(grad) * 10^6
@@ -438,8 +438,8 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
       beta1.sol <- optim(
         par = beta1_hat,
-        fn = l1_sub_fun,
-        gr = grad_l1_sub_fun,
+        fn = l1_fun,
+        gr = grad_l1_fun,
         method = "L-BFGS-B",
         lower = lb,
         upper = ub,
@@ -458,14 +458,14 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
   ## Control arm
   ## reduced form：
-  l0_mu_sub_fun <- function(mu){
+  l0_mu_fun <- function(mu){
     term1 <- t(X_negi) %*% Y0tilde_negi / (n - 1)
     term2 <- t(X_sub) %*% mu / nrow(X_sub)
     score_diff <- term1 - term2
     fval <- sum(score_diff**2 * 10^6) / (2 * length(score_diff))
     return(fval)
   }
-  grad_l0_mu_sub_fun <- function(mu){
+  grad_l0_mu_fun <- function(mu){
     grad <- - 1 / nrow(X_sub) * X_sub %*% (t(X_negi) %*% Y0tilde_negi / (n - 1) - t(X_sub) %*% mu / nrow(X_sub))
     grad <- grad / length(grad) * 10^6
     return(grad)
@@ -478,11 +478,11 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
   loc1_sub <- setdiff(loc1, i)
   X_sub <- rbind(X[i, ], X_negi[A_negi == 0, ], X[loc1_sub, ])
 
-  mu_sub_init <- as.numeric(1 / (1 + exp(-X_sub %*% beta0_hat)))
-  mu0_sub.sol <- optim(
-    par = mu_sub_init,
-    fn = l0_mu_sub_fun,
-    gr = grad_l0_mu_sub_fun,
+  mu_init <- as.numeric(1 / (1 + exp(-X_sub %*% beta0_hat)))
+  mu0.sol <- optim(
+    par = mu_init,
+    fn = l0_mu_fun,
+    gr = grad_l0_mu_fun,
     method = "L-BFGS-B",
     lower = lb,
     upper = ub,
@@ -491,28 +491,28 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
       factr = 1e-10 / .Machine$double.eps
     )
   )
-  l0_value <- abs(mu0_sub.sol$value)
-  y0_hat_i <- mu0_sub.sol$par[1]
+  l0_value <- abs(mu0.sol$value)
+  y0_hat_i <- mu0.sol$par[1]
 
   if(opt_obj == 'beta'){
     is_converge <- FALSE
     if(l0_value < 1e-6){
-      est_sub_fun0 <- function (beta) {
+      est_fun0 <- function (beta) {
         term1 <- as.numeric(t(X_negi) %*% Y0tilde_negi / (n - 1))
         u <- as.numeric(1 / (1 + exp(-X_sub %*% beta)))
         term2 <- as.numeric(t(X_sub) %*% u / nrow(X_sub))
         return(term1 - term2)
       }
-      beta0.sol <- BBsolve(par = rep(0, ncol(X_negi)), fn = est_sub_fun0, quiet = TRUE, control = list(tol=1e-7))
+      beta0.sol <- BBsolve(par = rep(0, ncol(X_negi)), fn = est_fun0, quiet = TRUE, control = list(tol=1e-7))
       beta0_hat_negi <- beta0.sol$par
       y0_hat_sub <- as.numeric(1 / (1 + exp(-X_sub %*% beta0_hat_negi)))
-      l0_value <- l0_mu_sub_fun(y0_hat_sub)
+      l0_value <- l0_mu_fun(y0_hat_sub)
       y0_hat_i <- y0_hat_sub[1]
       is_converge <- ifelse(beta0.sol$convergence == 0, TRUE, FALSE)
     }
 
     if(!is_converge){
-      l0_sub_fun <- function(beta){
+      l0_fun <- function(beta){
         term1 <- as.numeric(t(X_negi) %*% Y0tilde_negi / (n - 1))
         u <- as.numeric(1 / (1 + exp(-X_sub %*% beta)))
         term2 <- as.numeric(t(X_sub) %*% u / nrow(X_sub))
@@ -520,7 +520,7 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
         fval <- sum(score_diff**2 * 10^6) / (2 * length(score_diff))
         return(fval)
       }
-      grad_l0_sub_fun <- function(beta){
+      grad_l0_fun <- function(beta){
         u <- as.numeric(1 / (1 + exp(-X_sub %*% beta)))
         grad <- - 1 / nrow(X_sub) * t(X_sub) %*% diag(u * (1 - u)) %*% X_sub %*% (t(X_negi) %*% Y0tilde_negi / (n - 1) - t(X_sub) %*% u / nrow(X_sub))
         grad <- grad / length(grad) * 10^6
@@ -532,8 +532,8 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
       beta0.sol <- optim(
         par = beta0_hat,
-        fn = l0_sub_fun,
-        gr = grad_l0_sub_fun,
+        fn = l0_fun,
+        gr = grad_l0_fun,
         method = "L-BFGS-B",
         lower = lb,
         upper = ub,
@@ -544,7 +544,7 @@ fit.JASA.i.binomial <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
       )
       beta0_hat_negi <- beta0.sol$par
       y0_hat_sub <- as.numeric(1 / (1 + exp(-X_sub %*% beta0_hat_negi)))
-      l0_value <- l0_mu_sub_fun(y0_hat_sub)
+      l0_value <- l0_mu_fun(y0_hat_sub)
       # l0_fun(beta0_hat_negi)
       y0_hat_i <- y0_hat_sub[1]
     }
@@ -576,14 +576,14 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
   ## Treatment arm
   ## Step 1:
-  l1_fun <- function(mu){
+  l1_mu_fun <- function(mu){
     term1 <- t(X_negi) %*% Y1tilde_negi / (n - 1)
     term2 <- t(X) %*% mu / n
     score_diff <- term1 - term2
     fval <- sum(score_diff**2 * 10^6) / (2 * length(score_diff))
     return(fval)
   }
-  grad_l1_fun <- function(mu){
+  grad_l1_mu_fun <- function(mu){
     grad <- - 1 / n * X %*% (t(X_negi) %*% Y1tilde_negi / (n - 1) - t(X) %*% mu / n)
     grad <- grad / length(grad) * 10^6
     return(grad)
@@ -593,8 +593,8 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
   ub <- rep(Inf, ncol(X))
   mu1.sol <- optim(
     par = mu_init,
-    fn = l1_fun,
-    gr = grad_l1_fun,
+    fn = l1_mu_fun,
+    gr = grad_l1_mu_fun,
     method = "L-BFGS-B",
     lower = lb,
     upper = ub,
@@ -619,7 +619,7 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
       beta1.sol <- BBsolve(par = rep(0, ncol(X_negi)), fn = est_fun1, quiet = TRUE, control = list(tol=1e-7))
       beta1_hat_negi <- beta1.sol$par
       y1_hat <- as.numeric(X %*% beta1_hat_negi)
-      l1_value <- l1_fun(y1_hat)
+      l1_value <- l1_mu_fun(y1_hat)
       y1_hat_i <- y1_hat[i]
       is_converge <- ifelse(beta1.sol$convergence == 0, TRUE, FALSE)
     }
@@ -664,14 +664,14 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
 
   ## Control arm
   # Step 1
-  l0_fun <- function(mu){
+  l0_mu_fun <- function(mu){
     term1 <- t(X_negi) %*% Y0tilde_negi / (n - 1)
     term2 <- t(X) %*% mu / n
     score_diff <- term1 - term2
     fval <- sum(score_diff**2 * 10^6) / (2 * length(score_diff))
     return(fval)
   }
-  grad_l0_fun <- function(mu){
+  grad_l0_mu_fun <- function(mu){
     grad <- - 1 / n * X %*% (t(X_negi) %*% Y0tilde_negi / (n - 1) - t(X) %*% mu / n)
     grad <- grad / length(grad) * 10^6
     return(grad)
@@ -681,8 +681,8 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
   ub <- rep(Inf, ncol(X))
   mu0.sol <- optim(
     par = mu_init,
-    fn = l0_fun,
-    gr = grad_l0_fun,
+    fn = l0_mu_fun,
+    gr = grad_l0_mu_fun,
     method = "L-BFGS-B",
     lower = lb,
     upper = ub,
@@ -707,7 +707,7 @@ fit.JASA.i.gaussian <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_o
       beta0.sol <- BBsolve(par = rep(0, ncol(X_negi)), fn = est_fun0, quiet = TRUE, control = list(tol=1e-7))
       beta0_hat_negi <- beta0.sol$par
       y0_hat <- as.numeric(X %*% beta0_hat_negi)
-      l0_value <- l0_fun(y0_hat)
+      l0_value <- l0_mu_fun(y0_hat)
       y0_hat_i <- y0_hat[i]
       is_converge <- ifelse(beta0.sol$convergence == 0, TRUE, FALSE)
     }
@@ -775,14 +775,14 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
 
   ## Treatment arm
   # Step 1
-  l1_mu_sub_fun <- function(mu){
+  l1_mu_fun <- function(mu){
     term1 <- t(X_negi) %*% Y1tilde_negi / (n - 1)
     term2 <- t(X_sub) %*% mu / nrow(X_sub)
     score_diff <- term1 - term2
     fval <- sum(score_diff**2) / (2 * length(score_diff))
     return(fval)
   }
-  grad_l1_mu_sub_fun <- function(mu){
+  grad_l1_mu_fun <- function(mu){
     grad <- - 1 / nrow(X_sub) * X_sub %*% (t(X_negi) %*% Y1tilde_negi / (n - 1) - t(X_sub) %*% mu / nrow(X_sub))
     grad <- grad / length(grad)
     return(grad)
@@ -796,11 +796,11 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
   loc0_sub <- setdiff(loc0, i)
   X_sub <- rbind(X[i, ], X_negi[A_negi == 1, ], X[loc0_sub, ])
 
-  mu_sub_init <- rep(1, nrow(X_sub))
-  mu1_sub.sol <- optim(
-    par = mu_sub_init,
-    fn = l1_mu_sub_fun,
-    gr = grad_l1_mu_sub_fun,
+  mu_init <- rep(1, nrow(X_sub))
+  mu1.sol <- optim(
+    par = mu_init,
+    fn = l1_mu_fun,
+    gr = grad_l1_mu_fun,
     method = "L-BFGS-B",
     lower = lb,
     upper = ub,
@@ -809,8 +809,8 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
       factr = 1e-10 / .Machine$double.eps
     )
   )
-  l1_value <- abs(mu1_sub.sol$value)
-  y1_hat_i <- mu1_sub.sol$par[1]
+  l1_value <- abs(mu1.sol$value)
+  y1_hat_i <- mu1.sol$par[1]
 
 
   if(opt_obj == 'beta'){
@@ -827,13 +827,13 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
       beta1_hat_negi <- beta1.sol$par
       is_converge <- ifelse(beta1.sol$convergence == 0, TRUE, FALSE)
       y1_hat_sub <- as.numeric(exp(X_sub %*% beta1_hat_negi))
-      l1_value <- l1_mu_sub_fun(y1_hat_sub)
+      l1_value <- l1_mu_fun(y1_hat_sub)
       y1_hat_i <- y1_hat_sub[1]
     }
 
     # Step 3:
     if(!is_converge){
-      l1_sub_fun <- function(beta){
+      l1_fun <- function(beta){
         term1 <- as.numeric(t(X_negi) %*% Y1tilde_negi / (n - 1))
         lp <- pmin(as.numeric(X_sub %*% beta), 700)
         term2 <- as.numeric(t(X_sub) %*% exp(lp) / nrow(X_sub))
@@ -841,7 +841,7 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
         fval <- sum(score_diff**2) / (2 * length(score_diff))
         return(fval)
       }
-      grad_l1_sub_fun <- function(beta){
+      grad_l1_fun <- function(beta){
         lp <- as.numeric(X_sub %*% beta)
         lp <- pmin(lp, 700)
         u <- as.numeric(exp(lp))
@@ -856,8 +856,8 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
 
       beta1.sol <- optim(
         par = beta1_hat,
-        fn = l1_sub_fun,
-        gr = grad_l1_sub_fun,
+        fn = l1_fun,
+        gr = grad_l1_fun,
         method = "L-BFGS-B",
         lower = lb,
         upper = ub,
@@ -875,14 +875,14 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
 
   ## Control arm
   # Step 1:
-  l0_mu_sub_fun <- function(mu){
+  l0_mu_fun <- function(mu){
     term1 <- t(X_negi) %*% Y0tilde_negi / (n - 1)
     term2 <- t(X_sub) %*% mu / nrow(X_sub)
     score_diff <- term1 - term2
     fval <- sum(score_diff**2) / (2 * length(score_diff))
     return(fval)
   }
-  grad_l0_mu_sub_fun <- function(mu){
+  grad_l0_mu_fun <- function(mu){
     grad <- - 1 / nrow(X_sub) * X_sub %*% (t(X_negi) %*% Y0tilde_negi / (n - 1) - t(X_sub) %*% mu / nrow(X_sub))
     grad <- grad / length(grad)
     return(grad)
@@ -895,11 +895,11 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
   loc1_sub <- setdiff(loc1, i)
   X_sub <- rbind(X[i, ], X_negi[A_negi == 0, ], X[loc1_sub, ])
 
-  mu_sub_init <- rep(1, nrow(X))
-  mu0_sub.sol <- optim(
-    par = mu_sub_init,
-    fn = l0_mu_sub_fun,
-    gr = grad_l0_mu_sub_fun,
+  mu_init <- rep(1, nrow(X))
+  mu0.sol <- optim(
+    par = mu_init,
+    fn = l0_mu_fun,
+    gr = grad_l0_mu_fun,
     method = "L-BFGS-B",
     lower = lb,
     upper = ub,
@@ -908,8 +908,8 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
       factr = 1e-10 / .Machine$double.eps  # 设置相对精度容差
     )
   )
-  l0_value <- abs(mu0_sub.sol$value)
-  y0_hat_i <- mu0_sub.sol$par[1]
+  l0_value <- abs(mu0.sol$value)
+  y0_hat_i <- mu0.sol$par[1]
 
 
   if(opt_obj == 'beta'){
@@ -925,7 +925,7 @@ fit.JASA.i.poisson <- function(Y, X, A, pi1_hat, beta1_hat, beta0_hat, i, opt_ob
       beta0_hat_negi <- beta0.sol$par
       is_converge <- ifelse(beta0.sol$convergence == 0, TRUE, FALSE)
       y0_hat_sub <- as.numeric(exp(X_sub %*% beta0_hat_negi))
-      l0_value <- l0_mu_sub_fun(y0_hat_sub)
+      l0_value <- l0_mu_fun(y0_hat_sub)
       y0_hat_i <- y0_hat_sub[1]
     }
 
