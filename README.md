@@ -12,7 +12,8 @@ devtools::install_github("Cinbo-Wang/HOIF-Car")
 
 ## Example
 
-We first consider the Completely Randomized Experiment (CRE) with moderately high-dimensional covariates under the randomization-based framework. 
+### adj2 and adj2c estimators
+We first consider the Completely Randomized Experiment (CRE) with moderately high-dimensional covariates under the randomization-based (design-based) framework. 
 ```R
 # Oracle Estimatation 
 ## Linear setting
@@ -58,9 +59,9 @@ Y1 <- 1 + as.numeric(or_baseline) + epsilon1
 pi1 <- 2/3
 n1 <- ceiling(n*pi1)
 
-result_adj_db <- get_oracle_bias_var_adj_db(X = X,Y1=Y1,n1=n1) # from LYW paper
-result_adj2c <- get_oracle_bias_var_adj2c(X = X,Y1=Y1,n1=n1)
-result_adj2_3 <- get_oracle_bias_var_adj_2_3(X=X, Y1=Y1,n1=n1)
+result_adj_db <- get_oracle_bias_var_adj_db(X = X, Y1 = Y1, n1 = n1) # from LYW paper
+result_adj2c <- get_oracle_bias_var_adj2c(X = X, Y1=Y1, n1 = n1)
+result_adj2_3 <- get_oracle_bias_var_adj_2_3(X = X, Y1=Y1, n1 = n1)
 unlist(result_adj_db)
 unlist(result_adj2c)
 unlist(result_adj2_3)
@@ -84,8 +85,8 @@ A <- rep(0, n)
 A[ind] <- 1
 Y <- Y1 * A + Y0 * (1 - A)
 
-Xc_svd <- svd(X)
-H <- Xc_svd$u %*% t(Xc_svd$u)
+Xc <- scale(X, scale = FALSE)
+H <- Xc %*% MASS::ginv(t(Xc) %*% Xc) %*% t(Xc)
 
 ## Estimate mean treat on the treatment arm
 result_ls <- esti_mean_treat(X, Y, A, H)
@@ -94,12 +95,12 @@ var_est <- result_ls$var_est
 print(paste0('True mean treat:', round(mean(Y1), digits = 3), '.'))
 print('Absolute bias:')
 print(abs(point_est - mean(Y1)))
-print('Estimate variance:')
+print('Estimated variance:')
 print(var_est)
 
 ## Estimate ATE using adj2 and adj2c estimators
 Xc <- cbind(1, scale(X, scale = FALSE))
-result.adj2.adj2c.random.ls <- fit.ate.adj2.adj2c.Random.CRE(Y, Xc, A)
+result.adj2.adj2c.random.ls <-  fit.adj2.adj2c.Random(Y, Xc, A)
 point_est <- result.adj2.adj2c.random.ls$tau_vec
 var_est <- result.adj2.adj2c.random.ls$var_vec
 point_est
@@ -140,14 +141,134 @@ Y <- A * Y1 + (1 - A) * Y0
 
 # Estimate ATE, EY1 and EY0 using adj2 and adj2c estimators
 Xc <- cbind(1, scale(X, scale = FALSE))
-result.ate.adj2.adj2c.sp.ls <- fit.ate.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE)
-result.treat.adj2.adj2c.sp.ls <- fit.mean.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE, Treated = TRUE)
-result.control.adj2.adj2c.sp.ls <- fit.mean.adj2.adj2c.Super.SR(Y, Xc, A, intercept = TRUE, Treated = FALSE)
-
-
-result.ate.adj2.adj2c.sp.ls
-result.treat.adj2.adj2c.sp.ls
+result.adj2.adj2c.sp.ate.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+                                                    target = 'ATE', lc = TRUE)
+result.adj2.adj2c.sp.ate.ls
+result.adj2.adj2c.sp.treat.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+                                                      target = 'EY1', lc = TRUE)
+result.adj2.adj2c.sp.treat.ls
+result.adj2.adj2c.sp.control.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TRUE,
+                                                        target = 'EY0', lc = TRUE)
+result.adj2.adj2c.sp.control.ls
 ```
+
+### JASA and JASA-cal estimators
+```R
+generate_data_SR <- function(n, family, pi1, p_n_ratio = 0.05, seed = 123){
+  set.seed(seed)
+  alpha0 <- 0.15
+  p0 <- ceiling(round(n * alpha0))
+  beta0_full <- 1/(1:p0)^(1/4)*(-1)^c(1:p0)
+  Sigma_true <- matrix(0, nrow = p0, ncol = p0)
+  for (i in 1:p0) {
+    for (j in 1:p0) {
+      Sigma_true[i, j] <- 0.1 ** (abs(i - j))
+    }
+  }
+
+  if(family != 'poisson'){
+    X <- mvtnorm::rmvt(n, sigma = Sigma_true, df = 3)
+  }else{
+    X0 <- mvtnorm::rmvt(n, sigma = Sigma_true, df = 3)
+    X <- pmin(pmax(X0, -3), 3)
+    rm(X0)
+  }
+
+  beta <- beta0_full / norm(beta0_full,type='2')
+  lp0 <- X %*% beta
+
+  delta_X <- 1 - 1/2 * pmin(X[, 1]^2, 5) + 1/4 * X[, 1:10] %*% beta[1:10]
+  lp1 <- lp0 + delta_X
+
+
+  if (family == 'binomial') {
+    r0 <- plogis(2 * lp0)
+    r1 <- plogis(2 * lp1)
+    Y1 <- rbinom(n, size=1, prob=r1)
+    Y0 <- rbinom(n, size=1, prob=r0)
+  }else if(family == 'poisson'){
+    # quantile(lp1);quantile(lp0)
+    lp1_tran <- pmin(lp1, 4)
+    lp0_tran <- pmin(lp0, 4)
+    r1 <- exp(lp1_tran)
+    r0 <- exp(lp0_tran)
+
+    Y1 <- rpois(n,r1)
+    Y0 <- rpois(n,r0)
+  }else if(family == 'gaussian'){
+    r1 <- lp1;
+    r0 <- lp0
+    Y1 <- r1 + rnorm(n)
+    Y0 <- r0 + rnorm(n)
+  }
+
+  A <- rbinom(n, size=1, prob=pi1)
+  Y <- A * Y1 + (1 - A) * Y0
+
+  p <- ceiling(round(n * p_n_ratio))
+  if(p > ncol(X)){
+    if(family != 'poisson'){
+      X_noise <- rmvt(n, sigma = diag(p - ncol(X)), df = 3)
+    }else{
+      X0_noise <- rmvt(n, sigma = diag(p - ncol(X)), df = 3)
+      X_noise <- pmin(pmax(X0_noise, -3), 3)
+    }
+    X_obs <- cbind(X, X_noise)
+  }else{
+    X_obs <- X[, 1:p, drop = FALSE]
+  }
+
+  data_ls <- list(
+    X = X_obs, Y = Y, A = A,
+    Y1 = Y1, Y0 = Y0,
+    r1 = r1, r0 = r0
+  )
+  return(data_ls)
+}
+
+
+n <- 400; pi1 <- 1/3
+
+## Continuous outcomes
+family <- 'gaussian'; p_n_ratio <- 0.05
+data_ls <- generate_data_SR(n, family, pi1, p_n_ratio)
+X <- data_ls$X;
+A <- data_ls$A
+Y <- data_ls$Y
+
+Xc <- scale(X, scale = FALSE)
+Xc_aug <- cbind(1, Xc)
+result.jasa.ls <- fit.JASA(Y, Xc_aug, A, family, opt_obj = 'beta')
+result.jasa.ls$tau_vec
+result.jasa.ls$var_tau_vec
+
+## Count outcomes
+family <- 'poisson'; p_n_ratio <- 0.05
+data_ls <- generate_data_SR(n, family, pi1, p_n_ratio)
+X <- data_ls$X;
+A <- data_ls$A
+Y <- data_ls$Y
+
+Xc <- scale(X, scale = FALSE)
+Xc_aug <- cbind(1, Xc)
+result.jasa.ls <- fit.JASA(Y, Xc_aug, A, family, opt_obj = 'mu')
+result.jasa.ls$tau_vec
+result.jasa.ls$var_tau_vec
+
+## Binary outcomes
+family <- 'binomial'; p_n_ratio <- 0.05
+data_ls <- generate_data_SR(n, family, pi1, p_n_ratio)
+X <- data_ls$X;
+A <- data_ls$A
+Y <- data_ls$Y
+
+Xc <- scale(X, scale = FALSE)
+Xc_aug <- cbind(1, Xc)
+result.jasa.ls <- fit.JASA(Y, Xc_aug, A, family, opt_obj = 'beta')
+result.jasa.ls$tau_vec
+result.jasa.ls$var_tau_vec
+```
+
 
 ## References
 Zhao, S., Wang, X., Liu, L., & Zhang, X. (2024). Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491
