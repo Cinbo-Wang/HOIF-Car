@@ -1,7 +1,7 @@
 Package: HOIFCar
 Type: Package
 Title: Covariate Adjustment in RCT by Higher-Order Influence Functions
-Version: 1.1.0
+Version: 1.1.1
 Authors@R: c( 
     person("Sihui", "Zhao", email = "shzhao0115@sjtu.edu.cn", role = "aut"),
     person("Xinbo", "Wang", email = "cinbo_w@sjtu.edu.cn", role = c("cre", "aut")),
@@ -12,7 +12,7 @@ License: MIT + file LICENSE
 Suggests:
   mvtnorm
 Encoding: UTF-8
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 NeedsCompilation: no
 Imports:
     brglm2,
