@@ -148,6 +148,88 @@ result.adj2.adj2c.sp.control.ls <- fit.adj2.adj2c.Super(Y, Xc, A, intercept = TR
                                                         target = 'EY0', lc = TRUE)
 result.adj2.adj2c.sp.control.ls
 ```
+We next consider the Covariate-adaptive randomization with moderately high-dimensional covariates under the Super-Population based framework. 
+```R
+  set.seed(120)
+  alpha0 <- 0.1;
+  n <- 400;
+  S <- as.factor(sample(c("0-30","31-50",">50"),n,replace = T,prob=c(0.2,0.4,0.4)))
+  ns_min = min(table(S))
+  
+  p0 <- ceiling(ns_min * alpha0)
+  beta0_full <- 1 / (1:p0) ^ (1 / 2) * (-1) ^ c(1:p0)
+  beta <- beta0_full / norm(beta0_full,type='2')
+  
+  Sigma_true <- matrix(0, nrow = p0, ncol = p0)
+  for (i in 1:p0) {
+    for (j in 1:p0) {
+      Sigma_true[i, j] <- 0.1 ** (abs(i - j))
+    }
+  }
+  
+  X <- mvtnorm::rmvt(n, sigma = Sigma_true, df = 3)
+  
+  lp0 <- X %*% beta
+  delta_X <- 1  -  1/4 * X[, 2] -  1/8 * X[, 3]
+  lp1 <- lp0 + delta_X
+  
+  Y0 <- lp0 + rnorm(n)
+  Y1 <- lp1 + rnorm(n)
+  
+  
+  pi1 <- 1 / 2
+  
+  # We use stratified block randomization as an example, simple randomization
+  # is also valid by setting S = rep(1,n) and A = rbinom(n,1,pi1)
+  
+  sbr <- function(S,nA,p,block_size=10){
+    N <- length(S)
+    B <- block_size
+    A <- rep(0,N)
+    nS <- length(unique(S))
+    for(s in 1:nS){
+      ind_s <- which(S==s)
+      n_s <- length(ind_s)
+      A_s <- rep(0,n_s)
+      numB <- floor(n_s/B)
+      rem <- n_s - numB*B
+      size_A <- B*p[s]
+      if(numB==0){
+        size_rem = floor(rem*p[s])
+        size_rem[1] = rem - sum(size_rem[-1])
+        A_s[(B*numB+1):n_s] <- sample(rep(0:(nA-1),size_rem),size=rem,replace = F)
+      }else{
+        for(i in 1:numB){
+          A_s[(B*(i-1)+1):(B*i)] <- sample(rep(0:(nA-1),size_A),size=B,replace = F)
+        }
+        if(rem>0){
+          size_rem = floor(rem*p[s])
+          size_rem[1] = rem - sum(size_rem[-1])
+          A_s[(B*numB+1):n_s] <- sample(rep(0:(nA-1),size_rem),size=rem,replace = F)
+        }
+      }
+      A[ind_s] <- A_s
+    }
+    return(A)
+  }
+  
+  
+  A <- sbr(as.numeric(S),2,rep(pi1,3),block_size = 4)
+  
+  Y <- A * Y1 + (1 - A) * Y0
+  
+  Xc <- cbind(1, scale(X, scale = FALSE))
+  result.adj2.adj2c.car.ate.ls <- fit.adj2.adj2c.CAR(Y, Xc,S, A, intercept = TRUE,
+                                                     target = 'ATE')
+  result.adj2.adj2c.car.ate.ls
+  result.adj2.adj2c.car.treat.ls <- fit.adj2.adj2c.CAR(Y, Xc,S, A, intercept = TRUE,
+                                                       target = 'EY1')
+  result.adj2.adj2c.car.treat.ls
+  result.adj2.adj2c.car.control.ls <- fit.adj2.adj2c.CAR(Y, Xc,S, A, intercept = TRUE,
+                                                         target = 'EY0')
+  result.adj2.adj2c.car.control.ls
+
+```
 
 ### JASA and JASA-cal estimators
 ```R
@@ -269,6 +351,8 @@ result.jasa.ls$var_tau_vec
 
 ## References
 Zhao, S., Wang, X., Liu, L., & Zhang, X. (2024). Covariate adjustment in randomized experiments motivated by higher-order influence functions. arXiv preprint. https://arxiv.org/abs/2411.08491
+
+Gu, Y., Liu, L., & Ma, W. (2025). Assumption-lean covariate adjustment under covariate adaptive randomization when $ p= o (n) $. arXiv preprint arXiv:2512.20046.
 
 Xin Lu, Fan Yang, and Yuhao Wang. Debiased regression adjustment in completely randomized experiments with moderately high-dimensional covariates. arXiv preprint arXiv:2309.02073, 2023.
 
